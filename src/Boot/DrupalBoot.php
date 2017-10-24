@@ -392,7 +392,13 @@ abstract class DrupalBoot extends BaseBoot
             }
             foreach ((array)$required_tables as $required_table) {
                 $prefix_key = array_key_exists($required_table, $prefix) ? $required_table : 'default';
-                if (!in_array($prefix[$prefix_key] . $required_table, $tables)) {
+
+                // Test for PostgreSQL schema used instead of prefix.
+                if ($spec['driver'] == 'pgsql' && strpos($prefix[$prefix_key], '.') === false) {
+                    $required_table = $prefix[$prefix_key] . $required_table;
+                }
+
+                if (!in_array($required_table, $tables, true)) {
                     return false;
                 }
             }

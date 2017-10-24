@@ -2,7 +2,7 @@
 
 namespace Drush\Sql;
 
-define('PSQL_SHOW_TABLES', "SELECT tablename FROM pg_tables WHERE schemaname='public';");
+define('PSQL_SHOW_TABLES', "SELECT tablename FROM pg_tables WHERE schemaname='%schema%';");
 
 class SqlPgsql extends SqlBase
 {
@@ -100,15 +100,16 @@ class SqlPgsql extends SqlBase
 
     public function queryFormat($query)
     {
-        if (strtolower($query) == 'show tables;') {
-            return PSQL_SHOW_TABLES;
+        if ($query === PSQL_SHOW_TABLES) {
+            $schema = $this->getSchemaName();
+            return str_replace('%schema%', $schema, PSQL_SHOW_TABLES);
         }
         return $query;
     }
 
     public function listTables()
     {
-        $return = $this->alwaysQuery(PSQL_SHOW_TABLES);
+        $this->alwaysQuery(PSQL_SHOW_TABLES);
         $tables = drush_shell_exec_output();
         if (!empty($tables)) {
             return $tables;
@@ -169,5 +170,47 @@ class SqlPgsql extends SqlBase
     public function getPasswordFile()
     {
         return $this->password_file;
+    }
+
+    /**
+     * Get schema name.
+     *
+     * @return string
+     */
+    public function getSchemaName()
+    {
+        $schema = 'public';
+        $dbSpec = $this->getDbSpec();
+        if (!empty($dbSpec['prefix'])) {
+            $prefix = $dbSpec['prefix'];
+
+            if (is_array($dbSpec['prefix'])) {
+                $prefix = $dbSpec['prefix']['default'];
+            }
+
+            if (strpos($prefix, '.') !== false) {
+                list($schema,) = explode('.', $prefix);
+            }
+        }
+        return $schema;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function drop($tables)
+    {
+        $return = true;
+        if ($tables) {
+            $schema = $this->getSchemaName();
+            if ($schema !== 'public') {
+                array_walk($tables, function (&$table, $index, $schema) {
+                    $table = $schema . '.' . $table;
+                }, $schema);
+            }
+            $sql = 'DROP TABLE '. implode(', ', $tables);
+            $return = $this->query($sql);
+        }
+        return $return;
     }
 }
