@@ -330,10 +330,15 @@ class SqlBase
     public function drop($tables)
     {
         $return = true;
+
         if ($tables) {
-            $sql = 'DROP TABLE '. implode(', ', $tables);
-            $return = $this->query($sql);
+            $set = array_chunk($tables, 100);
+            foreach ($set as $tables_set) {
+                $sql = 'DROP TABLE '. implode(', ', $tables_set);
+                $return = $this->query($sql);
+            }
         }
+
         return $return;
     }
 
